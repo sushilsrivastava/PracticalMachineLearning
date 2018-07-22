@@ -1,0 +1,121 @@
+---
+title: "Practical Machine Learning Project"
+author: "Sushil Kumar Srivastava"
+date: "July 21, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set.  More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+The  data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## Summary
+Based on a dataset provide by HAR, we will try to train a predictive model to predict what exercise was performed using a dataset with 159 features
+
+We'll take the following steps:
+
+* Getting and preparing the Data, for use of this project
+* Explore the data
+* Setting the Cross Validation arguments
+* Feature Selection
+* Model Building
+* Model Accuracy Evaluation
+* A Conclusion where we answer the questions based on the data
+* Predicting the classification of the model on test set
+
+## Getting and preparing the Data
+We will store and create partition of the data for our testing and training data set. queryData contains 20 rows for which we need to predict the right classe.
+
+```{r cache=TRUE}
+library(caret)
+Data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+queryData <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+ 
+index<-createDataPartition(Data$classe,p=0.8,list=FALSE)
+trainingData<-Data[index,]
+testData<-Data[-index,]
+```
+
+## Exploratory data analyses
+
+```{r eval=FALSE}
+dim(trainingData)
+head(trainingData)
+summary(trainingData)
+```
+```{r cache=TRUE}
+str(trainingData)
+```
+
+## Cross Validation
+For the cross validation, I am going to use  "repeatedcv" method with 3 repeatition and 10 folds. Here is the code to set trainControl object:
+
+```{r  cache=TRUE}
+library(caret)
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+seed <- 7
+metric <- "Accuracy"
+set.seed(seed)
+mtry <- sqrt(ncol(trainingData))
+tunegrid <- expand.grid(.mtry=mtry)
+
+```
+
+## Feature Selection
+What we see is a lot of data with NA / empty values. I found that only following column numners are relavent to create the model:
+Relavant Column Numbers-> 8:11,37:49,60:68,84:86,102,113:124,140,151:160
+```{r  cache=TRUE}
+effectiveTrainData<-trainingData[,c(8:11,37:49,60:68,84:86,102,113:124,140,151:160)]
+
+```
+
+## Model Building
+Here I am going to create "Linear Discriminant Analysis" model,"Random Forest" model,"Decision Tree" model,"Stochastic Gradient Boosting" model.
+
+```{r eval=FALSE}
+model_gbm <- train(classe~., data=effectiveTrainData, method="gbm", metric=metric,  trControl=control)
+model_rpart <- train(classe~., data=effectiveTrainData, method="rpart", metric=metric, trControl=control)
+model_lda <- train(classe~., data=effectiveTrainData, method="lda", metric=metric,  trControl=control)
+```
+```{r  cache=TRUE}
+model_rf <- train(classe~., data=effectiveTrainData, method="rf", metric=metric, tuneGrid=tunegrid, trControl=control)
+```
+
+## Model Accuracy Evaluation
+Now we will start to predict the classe values of our testData using various models we built in previous step. Then we create the confusion matrix to get the accuracy for each model.  
+```{r  eval=FALSE}
+
+pred_gbm<-predict(model_gbm,newdata = testData)
+pred_rpart<-predict(model_rpart,newdata = testData)
+pred_lda<-predict(model_lda,newdata = testData)
+
+cm_rf<-confusionMatrix(testData$classe,pred_rf)
+cm_gbm<-confusionMatrix(testData$classe,pred_gbm)
+cm_rpart<-confusionMatrix(testData$classe,pred_rpart)
+cm_lda<-confusionMatrix(testData$classe,pred_lda)
+```
+```{r cache=TRUE}
+pred_rf<-predict(model_rf,newdata = testData)
+cm_rf<-confusionMatrix(testData$classe,pred_rf)
+cm_rf
+```
+We found 49.47% accuracy for "Decision Tree" model, 70.78% accuracy for "Linear Discriminant Analysis" model, 96.79% accuracy for "Stochastic Gradient Boosting" model, 99.82% accuracy for "Random Forest" model. In this way, the winner is "Random Forest" model since its accuracy is far ahead with rest of other models. 
+
+## Test results
+We will use "Random Forest" model to predict the 20 values
+
+```{r cache=TRUE}
+predict(model_rf,newdata = queryData)
+```
+
+
+
